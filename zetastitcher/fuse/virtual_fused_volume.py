@@ -71,7 +71,12 @@ class VirtualFusedVolume:
 
         self._debug = False
 
-        infile = os.path.join(self.path, self.fm.data_frame.iloc[0].name)
+        i = 0
+
+        while self.fm.data_frame.iloc[i].name.startswith("Empty"):
+            i += 1
+
+        infile = os.path.join(self.path, self.fm.data_frame.iloc[i].name)
         with InputFile(infile) as f:
             self.dtype = f.dtype
             self.nchannels = f.nchannels
@@ -97,7 +102,12 @@ class VirtualFusedVolume:
         """
         thickness = self.fm.full_thickness
 
-        infile = os.path.join(self.path, self.fm.data_frame.iloc[0].name)
+        i = 0
+
+        while self.fm.data_frame.iloc[i].name.startswith("Empty"):
+            i += 1
+
+        infile = os.path.join(self.path, self.fm.data_frame.iloc[i].name)
         with InputFile(infile) as f:
             output_shape = list(f.shape)
 
@@ -233,10 +243,16 @@ class VirtualFusedVolume:
 
         for index, Xs, sl in self._my_gen(df, X_min, X_stop, steps, myitem[:]):
             logger.info('loading {}\t{}'.format(index, sl))
-            with InputFile(os.path.join(self.path, index)) as f:
-                temp_shape = list(f.shape)
-                f.squeeze = False
-                sl_a = np.copy(f[tuple(sl)]).astype(dtype)
+
+            if index.startswith("Empty"):
+                temp_shape = df.loc[index, ['nfrms', 'ysize', 'xsize']].astype(int).tolist()
+                shape = tuple((s.stop - s.start) // (s.step or 1) for s in sl)
+                sl_a = np.zeros(shape)
+            else:
+                with InputFile(os.path.join(self.path, index)) as f:
+                    temp_shape = list(f.shape)
+                    f.squeeze = False
+                    sl_a = np.copy(f[tuple(sl)]).astype(dtype)
 
             z_from = sl[0].start
             z_to = sl[0].stop
