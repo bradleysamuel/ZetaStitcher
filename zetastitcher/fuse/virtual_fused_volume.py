@@ -73,7 +73,6 @@ class VirtualFusedVolume:
 
         infile = os.path.join(self.path, self.fm.data_frame.iloc[0].name)
         with InputFile(infile) as f:
-            self.temp_shape = list(f.shape)
             self.dtype = f.dtype
             self.nchannels = f.nchannels
 
@@ -225,7 +224,7 @@ class VirtualFusedVolume:
 
         t = threading.Thread(
             target=fuse_queue,
-            args=(q, fused, self.temp_shape[-2::]),
+            args=(q, fused),
             kwargs={
                 'debug': self._debug,
             }
@@ -235,6 +234,7 @@ class VirtualFusedVolume:
         for index, Xs, sl in self._my_gen(df, X_min, X_stop, steps, myitem[:]):
             logger.info('loading {}\t{}'.format(index, sl))
             with InputFile(os.path.join(self.path, index)) as f:
+                temp_shape = list(f.shape)
                 f.squeeze = False
                 sl_a = np.copy(f[tuple(sl)]).astype(dtype)
 
@@ -261,7 +261,9 @@ class VirtualFusedVolume:
 
                 overlaps.loc[overlaps['Z_from'] < 0, 'Z_from'] = 0
 
-            q.put([sl_a, index, z_from, tuple(sl), top_left, overlaps])
+            frame_shape = temp_shape[-2::]
+
+            q.put([sl_a, index, z_from, tuple(sl), top_left, overlaps, frame_shape])
 
         q.put(None)  # close queue
 
